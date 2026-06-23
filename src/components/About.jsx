@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
 
 function OrbitRing({ items, radius, duration, reverse = false }) {
@@ -21,6 +22,8 @@ function OrbitRing({ items, radius, duration, reverse = false }) {
 export default function About() {
   const { data } = usePortfolio()
   const about = data?.about || {}
+  const [imgFailed, setImgFailed] = useState(false)
+
 
   const inner = about.orbit_inner || ['React.js', 'JavaScript', 'Python', 'FastAPI']
   const middle = about.orbit_middle || ['HTML5', 'CSS3', 'Tailwind', 'MongoDB', 'Git']
@@ -44,7 +47,12 @@ export default function About() {
               <OrbitRing items={inner} radius={105} duration={10} />
               <OrbitRing items={middle} radius={165} duration={18} reverse />
               <OrbitRing items={outer} radius={220} duration={26} />
-              <div className="orbit-center">MN</div>
+              <div className="orbit-center" style={{ overflow: 'hidden', padding: 0 }}>
+                {about.profile_image && !imgFailed
+                  ? <img src={about.profile_image} alt="MN" onError={() => setImgFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  : <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', background: 'linear-gradient(135deg,#00d4ff,#9d4edd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>MN</span>
+                }
+              </div>
             </div>
           </div>
 

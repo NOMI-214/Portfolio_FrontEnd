@@ -1,41 +1,77 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
 
+/* ── Animated counter ─────────────────────────────────── */
 function Counter({ target, suffix = '' }) {
   const [count, setCount] = useState(0)
   const ref = useRef(null)
-
   useEffect(() => {
-    const observer = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) {
-        const n = parseInt(target)
-        let start = 0
-        const step = Math.ceil(n / 40)
-        const id = setInterval(() => {
-          start += step
-          if (start >= n) { setCount(n); clearInterval(id) }
-          else setCount(start)
-        }, 40)
-        observer.disconnect()
-      }
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return
+      const n = parseInt(target)
+      let v = 0
+      const step = Math.ceil(n / 40)
+      const id = setInterval(() => { v += step; if (v >= n) { setCount(n); clearInterval(id) } else setCount(v) }, 40)
+      io.disconnect()
     }, { threshold: 0.5 })
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
+    if (ref.current) io.observe(ref.current)
+    return () => io.disconnect()
   }, [target])
-
   return <span ref={ref}>{count}{suffix}</span>
 }
 
-const ORBIT_TECH = [
-  { label: 'React', angle: 0 },
-  { label: 'Node.js', angle: 90 },
-  { label: 'MongoDB', angle: 180 },
-  { label: 'FastAPI', angle: 270 },
+/* ── Typewriter cycling roles ─────────────────────────── */
+const ROLES = [
+  'Full Stack Developer',
+  'MERN Stack Developer',
+  'Frontend Engineer',
+  'React.js Specialist',
+  'IoT Engineer',
 ]
 
+function Typewriter() {
+  const [text, setText] = useState('')
+  const [roleIdx, setRoleIdx] = useState(0)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  useEffect(() => {
+    const current = ROLES[roleIdx]
+    const speed = isDeleting ? 45 : 85
+    const pause = 2200
+
+    const timeout = setTimeout(() => {
+      if (!isDeleting) {
+        if (text.length < current.length) {
+          setText(current.slice(0, text.length + 1))
+        } else {
+          setTimeout(() => setIsDeleting(true), pause)
+        }
+      } else {
+        if (text.length > 0) {
+          setText(current.slice(0, text.length - 1))
+        } else {
+          setIsDeleting(false)
+          setRoleIdx(i => (i + 1) % ROLES.length)
+        }
+      }
+    }, speed)
+
+    return () => clearTimeout(timeout)
+  }, [text, isDeleting, roleIdx])
+
+  return (
+    <span className="typewriter-wrap">
+      <span className="typewriter-text">{text}</span>
+      <span className="type-cursor">|</span>
+    </span>
+  )
+}
+
+/* ── Main Hero ────────────────────────────────────────── */
 export default function Hero() {
   const { data } = usePortfolio()
   const about = data?.about || {}
+  const [imgFailed, setImgFailed] = useState(false)
 
   const stats = about.stats || [
     { value: '6+', label: 'Projects Built' },
@@ -47,90 +83,104 @@ export default function Hero() {
   return (
     <section id="home" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', paddingTop: '80px', position: 'relative' }}>
       <style>{`
+        /* Layout */
         .hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; }
-        .hero-tag { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2); border-radius: 30px; font-size: 0.85rem; color: #00d4ff; margin-bottom: 24px; animation: fadeSlideDown 0.8s ease both; }
-        .hero-tag::before { content:''; width:8px; height:8px; background:#00d4ff; border-radius:50%; animation: hpulse 2s infinite; }
-        .hero-name { font-family: var(--font-heading); font-size: clamp(2.6rem,5vw,4rem); font-weight: 700; line-height: 1.1; margin-bottom: 12px; animation: fadeSlideDown 0.8s 0.1s ease both; }
-        .hero-title { font-size: clamp(0.95rem,2vw,1.2rem); color: var(--text-secondary); margin-bottom: 20px; animation: fadeSlideDown 0.8s 0.2s ease both; }
-        .hero-desc { color: var(--text-secondary); line-height: 1.8; max-width: 480px; margin-bottom: 36px; animation: fadeSlideDown 0.8s 0.3s ease both; }
-        .hero-btns { display: flex; gap: 16px; flex-wrap: wrap; animation: fadeSlideDown 0.8s 0.4s ease both; }
-        .hero-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-top: 52px; animation: fadeSlideDown 0.8s 0.5s ease both; }
-        .hero-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 20px 16px; text-align: center; transition: all 0.3s; }
-        .hero-stat:hover { border-color: rgba(0,212,255,0.3); background: rgba(0,212,255,0.05); transform: translateY(-3px); }
-        .hero-stat-num { font-family: var(--font-heading); font-size: 1.9rem; font-weight: 700; background: linear-gradient(135deg,#00d4ff,#9d4edd); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .hero-stat-lbl { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
 
-        /* Visual / orbit system */
-        .hero-visual { display: flex; justify-content: center; align-items: center; animation: fadeSlideDown 0.8s 0.2s ease both; }
-        .orbit-system { position: relative; width: 380px; height: 380px; }
+        /* Left column */
+        .hero-tag { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; background: rgba(0,212,255,0.07); border: 1px solid rgba(0,212,255,0.18); border-radius: 30px; font-size: 0.82rem; color: #00d4ff; margin-bottom: 22px; animation: hFade 0.8s ease both; }
+        .hero-tag::before { content:''; width:7px; height:7px; background:#00d4ff; border-radius:50%; animation: hpulse 2s infinite; flex-shrink:0; }
+        .hero-name { font-family: var(--font-heading); font-size: clamp(2.4rem,4.8vw,3.8rem); font-weight: 700; line-height: 1.1; margin-bottom: 14px; animation: hFade 0.8s 0.1s ease both; }
+        .hero-role { font-size: clamp(1rem,2vw,1.25rem); font-weight: 600; min-height: 1.8em; margin-bottom: 20px; animation: hFade 0.8s 0.2s ease both; }
+        .hero-desc { color: var(--text-secondary); line-height: 1.8; max-width: 460px; margin-bottom: 34px; font-size: 0.95rem; animation: hFade 0.8s 0.3s ease both; }
+        .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; animation: hFade 0.8s 0.4s ease both; }
+        .hero-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 48px; animation: hFade 0.8s 0.5s ease both; }
+        .hero-stat { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 18px 12px; text-align: center; transition: all 0.3s; }
+        .hero-stat:hover { border-color: rgba(0,212,255,0.25); background: rgba(0,212,255,0.04); transform: translateY(-3px); }
+        .hero-stat-num { font-family: var(--font-heading); font-size: 1.8rem; font-weight: 700; background: linear-gradient(135deg,#00d4ff,#9d4edd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .hero-stat-lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
 
-        /* Avatar center */
-        .avatar-core { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 130px; height: 130px; border-radius: 50%; background: linear-gradient(135deg, rgba(0,212,255,0.18), rgba(157,78,221,0.18)); border: 2px solid rgba(0,212,255,0.35); display: flex; align-items: center; justify-content: center; z-index: 4; box-shadow: 0 0 40px rgba(0,212,255,0.2), inset 0 0 30px rgba(0,212,255,0.06); }
-        .avatar-initials { font-family: var(--font-heading); font-size: 2.2rem; font-weight: 700; background: linear-gradient(135deg,#00d4ff,#9d4edd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-        .avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        /* Typewriter */
+        .typewriter-wrap { display: inline; }
+        .typewriter-text { background: linear-gradient(135deg,#00d4ff,#9d4edd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .type-cursor { color: #00d4ff; font-weight: 300; animation: blink 1s step-end infinite; margin-left: 1px; -webkit-text-fill-color: #00d4ff; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-        /* Rotating rings */
-        .orbit-ring { position: absolute; top: 50%; left: 50%; border-radius: 50%; border: 1px solid; transform-origin: center; }
-        .orbit-ring-1 { width: 210px; height: 210px; margin: -105px 0 0 -105px; border-color: rgba(0,212,255,0.22); animation: spinRing 12s linear infinite; }
-        .orbit-ring-1::before { content:''; position:absolute; top:-5px; left:50%; width:10px; height:10px; background:#00d4ff; border-radius:50%; transform:translateX(-50%); box-shadow:0 0 14px #00d4ff; }
-        .orbit-ring-2 { width: 310px; height: 310px; margin: -155px 0 0 -155px; border-color: rgba(157,78,221,0.15); animation: spinRing 22s linear infinite reverse; }
-        .orbit-ring-2::before { content:''; position:absolute; top:-5px; left:50%; width:8px; height:8px; background:#9d4edd; border-radius:50%; transform:translateX(-50%); box-shadow:0 0 12px #9d4edd; }
-        .orbit-ring-3 { width: 370px; height: 370px; margin: -185px 0 0 -185px; border-color: rgba(0,212,255,0.07); animation: spinRing 35s linear infinite; border-style: dashed; }
+        /* Right column — profile photo */
+        .hero-visual { display: flex; justify-content: center; align-items: center; animation: hFade 0.7s 0.15s ease both; }
+        .profile-frame { position: relative; width: 310px; height: 310px; flex-shrink: 0; }
 
-        /* Orbiting tech labels on ring-1 */
-        .orbit-label-wrap { position: absolute; top: 50%; left: 50%; width: 210px; height: 210px; margin: -105px 0 0 -105px; animation: spinRing 12s linear infinite; pointer-events: none; }
-        .orbit-label { position: absolute; top: 50%; left: 50%; animation: spinRing 12s linear infinite reverse; white-space: nowrap; }
-        .orbit-label span { display: block; padding: 4px 10px; background: rgba(7,7,15,0.85); border: 1px solid rgba(0,212,255,0.3); border-radius: 20px; font-size: 0.72rem; font-weight: 600; color: #00d4ff; backdrop-filter: blur(8px); box-shadow: 0 0 10px rgba(0,212,255,0.15); }
+        /* Photo circle */
+        .profile-photo { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; border: 2.5px solid rgba(0,212,255,0.28); box-shadow: 0 0 0 6px rgba(0,212,255,0.05), 0 0 60px rgba(0,212,255,0.12), 0 0 120px rgba(157,78,221,0.06); }
+        .profile-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+        .profile-photo-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,rgba(0,212,255,0.12),rgba(157,78,221,0.12)); font-family: var(--font-heading); font-size: 3rem; font-weight: 700; background-clip: text; -webkit-background-clip: text; color: transparent; background-image: linear-gradient(135deg,#00d4ff,#9d4edd); }
+        .profile-glow { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 30% 25%,rgba(0,212,255,0.1),transparent 55%); pointer-events: none; }
 
-        /* Floating badges */
-        .floating-badge { position: absolute; background: rgba(7,7,15,0.88); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 14px; backdrop-filter: blur(12px); font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 8px; z-index: 5; }
-        .badge-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .badge-open { bottom: 14px; left: 10px; animation: floatY 4s ease-in-out infinite; }
-        .badge-stack { top: 20px; right: 0px; animation: floatY 4s ease-in-out infinite 2s; }
-        .badge-mern { bottom: 60px; right: -10px; animation: floatY 4s ease-in-out infinite 1s; }
+        /* Spinning rings */
+        .p-ring { position: absolute; border-radius: 50%; border: 1.5px solid; animation: spinRing linear infinite; }
+        .p-ring::before { content:''; position:absolute; border-radius:50%; }
+        .p-ring-1 { inset: -24px; border-color: rgba(0,212,255,0.2); animation-duration: 14s; }
+        .p-ring-1::before { width:11px; height:11px; background:#00d4ff; top:-5.5px; left:50%; transform:translateX(-50%); box-shadow:0 0 14px rgba(0,212,255,0.9); }
+        .p-ring-2 { inset: -50px; border-color: rgba(157,78,221,0.13); animation-duration: 28s; animation-direction: reverse; border-style: dashed; }
+        .p-ring-2::before { width:8px; height:8px; background:#9d4edd; bottom:-4px; left:50%; transform:translateX(-50%); box-shadow:0 0 10px rgba(157,78,221,0.8); }
+        .p-ring-3 { inset: -72px; border-color: rgba(0,212,255,0.05); animation-duration: 45s; }
 
-        @keyframes hpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
-        @keyframes fadeSlideDown { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes spinRing { to { transform: rotate(360deg); } }
-        @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        /* Floating info badges */
+        .f-badge { position: absolute; display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: rgba(7,7,15,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; backdrop-filter: blur(16px); font-size: 0.78rem; font-weight: 600; white-space: nowrap; z-index: 5; }
+        .f-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .fb-open  { bottom: -8px;  left: -20px; animation: floatY 4s ease-in-out infinite 0s; }
+        .fb-stack { top:   -8px;  right: -16px; animation: floatY 4s ease-in-out infinite 1.4s; }
+        .fb-iot   { bottom: 68px; right: -28px; animation: floatY 4s ease-in-out infinite 0.7s; }
 
-        .scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-muted); font-size: 0.75rem; animation: fadeSlideDown 1s 1s ease both; }
-        .scroll-line { width: 1px; height: 40px; background: linear-gradient(to bottom, transparent, #00d4ff); animation: scrollPulse 2s ease-in-out infinite; }
+        @keyframes hpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
+        @keyframes hFade { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spinRing { to{transform:rotate(360deg)} }
+        @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+
+        .scroll-hint { position:absolute; bottom:28px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--text-muted); font-size:0.72rem; animation:hFade 1s 1.2s ease both; }
+        .scroll-line { width:1px; height:38px; background:linear-gradient(to bottom,transparent,#00d4ff); animation:scrollPulse 2s ease-in-out infinite; }
         @keyframes scrollPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
 
-        @media (max-width: 900px) {
-          .hero-inner { grid-template-columns: 1fr; text-align: center; }
-          .hero-visual { order: -1; }
-          .orbit-system { width: 280px; height: 280px; }
-          .orbit-ring-1 { width: 160px; height: 160px; margin: -80px 0 0 -80px; }
-          .orbit-ring-2 { width: 240px; height: 240px; margin: -120px 0 0 -120px; }
-          .orbit-ring-3 { width: 278px; height: 278px; margin: -139px 0 0 -139px; }
-          .orbit-label-wrap { width: 160px; height: 160px; margin: -80px 0 0 -80px; }
-          .avatar-core { width: 100px; height: 100px; }
-          .avatar-initials { font-size: 1.7rem; }
-          .hero-btns { justify-content: center; }
-          .hero-desc { margin: 0 auto 36px; }
+        @media(max-width:900px) {
+          .hero-inner { grid-template-columns:1fr; text-align:center; }
+          .hero-visual { order:-1; }
+          .profile-frame { width:240px; height:240px; }
+          .p-ring-3 { inset:-50px; }
+          .hero-btns { justify-content:center; }
+          .hero-desc { margin:0 auto 34px; }
+          .fb-open  { bottom:-10px; left:-10px; }
+          .fb-stack { top:-10px;   right:-10px; }
+          .fb-iot   { display:none; }
         }
-        @media (max-width: 480px) { .hero-stats { grid-template-columns: repeat(2,1fr); } }
+        @media(max-width:480px) { .hero-stats{grid-template-columns:repeat(2,1fr);} }
       `}</style>
 
       <div className="container">
         <div className="hero-inner">
+
+          {/* ── Left: text ── */}
           <div>
-            <div className="hero-tag">
-              <span>Available for Opportunities</span>
-            </div>
+            <div className="hero-tag">Available for Opportunities</div>
+
             <h1 className="hero-name">
-              Hi, I'm <span className="gradient-text">{about.name || 'Muhammad Nouman'}</span>
+              Hi, I'm{' '}
+              <span className="gradient-text">{about.name || 'Muhammad Nouman'}</span>
             </h1>
-            <p className="hero-title">{about.title || 'Full Stack Developer · MERN Stack · Frontend Engineer · IoT Engineer'}</p>
-            <p className="hero-desc">{about.short_bio || 'Passionate CS student building premium, responsive web experiences with React.js and modern technologies.'}</p>
+
+            <div className="hero-role">
+              <Typewriter />
+            </div>
+
+            <p className="hero-desc">
+              {about.short_bio || 'Passionate CS student building premium, responsive web experiences with React.js and modern technologies.'}
+            </p>
+
             <div className="hero-btns">
               <a href={about.cv_url || '/resume.pdf'} download className="btn-primary">Download CV</a>
               <button className="btn-outline" onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}>
                 Get In Touch
               </button>
             </div>
+
             <div className="hero-stats">
               {stats.map((s, i) => (
                 <div className="hero-stat" key={i}>
@@ -143,53 +193,39 @@ export default function Hero() {
             </div>
           </div>
 
+          {/* ── Right: profile photo ── */}
           <div className="hero-visual">
-            <div className="orbit-system">
+            <div className="profile-frame">
               {/* Rings */}
-              <div className="orbit-ring orbit-ring-1" />
-              <div className="orbit-ring orbit-ring-2" />
-              <div className="orbit-ring orbit-ring-3" />
+              <div className="p-ring p-ring-1" />
+              <div className="p-ring p-ring-2" />
+              <div className="p-ring p-ring-3" />
 
-              {/* Orbiting tech labels on inner ring */}
-              <div className="orbit-label-wrap">
-                {ORBIT_TECH.map((t) => {
-                  const rad = (t.angle * Math.PI) / 180
-                  const r = 105
-                  const x = r * Math.cos(rad)
-                  const y = r * Math.sin(rad)
-                  return (
-                    <div key={t.label} className="orbit-label" style={{ transform: `translate(calc(${x}px - 50%), calc(${y}px - 50%))` }}>
-                      <span>{t.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Center avatar */}
-              <div className="avatar-core">
-                {about.profile_image
-                  ? <img src={about.profile_image} alt="Muhammad Nouman" className="avatar-img"
-                      onError={e => { e.target.style.display = 'none' }}
-                    />
-                  : null}
-                <span className="avatar-initials" style={about.profile_image ? { display: 'none' } : {}}>MN</span>
+              {/* Photo */}
+              <div className="profile-photo">
+                {about.profile_image && !imgFailed
+                  ? <img src={about.profile_image} alt="Muhammad Nouman" onError={() => setImgFailed(true)} />
+                  : <div className="profile-photo-fallback">MN</div>
+                }
+                <div className="profile-glow" />
               </div>
 
               {/* Floating badges */}
-              <div className="floating-badge badge-open">
-                <div className="badge-dot" style={{ background: '#06d6a0', boxShadow: '0 0 8px #06d6a0' }} />
-                <span>Open to Work</span>
+              <div className="f-badge fb-open">
+                <div className="f-dot" style={{ background: '#06d6a0', boxShadow: '0 0 8px #06d6a0' }} />
+                Open to Work
               </div>
-              <div className="floating-badge badge-stack">
-                <div className="badge-dot" style={{ background: '#00d4ff', boxShadow: '0 0 8px #00d4ff' }} />
-                <span>MERN + FastAPI</span>
+              <div className="f-badge fb-stack">
+                <div className="f-dot" style={{ background: '#00d4ff', boxShadow: '0 0 8px #00d4ff' }} />
+                MERN + FastAPI
               </div>
-              <div className="floating-badge badge-mern">
-                <div className="badge-dot" style={{ background: '#9d4edd', boxShadow: '0 0 8px #9d4edd' }} />
-                <span>IoT Engineer</span>
+              <div className="f-badge fb-iot">
+                <div className="f-dot" style={{ background: '#9d4edd', boxShadow: '0 0 8px #9d4edd' }} />
+                IoT Engineer
               </div>
             </div>
           </div>
+
         </div>
       </div>
 
